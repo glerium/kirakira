@@ -38,7 +38,7 @@
         <dependency>
             <groupId>top.mrxiaom.mirai</groupId>
             <artifactId>overflow-core</artifactId>
-            <version>1.0.3.581-19bc9f8-SNAPSHOT</version> <!-- 使用最新快照版本 -->
+            <version>1.0.7</version>
         </dependency>
         
         <dependency>
