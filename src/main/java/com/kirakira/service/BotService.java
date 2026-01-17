@@ -43,7 +43,8 @@ public class BotService {
         }
 
         // check if user exists
-        try {   
+        try {
+            // Call API to verify user exists (result intentionally discarded)
             codeforcesClient.getRecentSubmissions(codeforcesId);
         } catch (UserNotFoundException e) {
             return "账号绑定失败：用户不存在";
