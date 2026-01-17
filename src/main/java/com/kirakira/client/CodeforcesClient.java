@@ -3,6 +3,7 @@ package com.kirakira.client;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -83,7 +84,7 @@ public class CodeforcesClient {
                 
                 if (retryCount < maxRetries) {
                     try {
-                        Thread.sleep(retryDelayMs * retryCount); // 递增延迟
+                        TimeUnit.MILLISECONDS.sleep(retryDelayMs * retryCount); // 递增延迟
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new CodeforcesApiException("请求被中断", ie);
@@ -98,7 +99,7 @@ public class CodeforcesClient {
                 
                 if (retryCount < maxRetries) {
                     try {
-                        Thread.sleep(retryDelayMs * retryCount);
+                        TimeUnit.MILLISECONDS.sleep(retryDelayMs * retryCount);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new CodeforcesApiException("请求被中断", ie);

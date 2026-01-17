@@ -5,6 +5,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import jakarta.annotation.PreDestroy;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -223,9 +224,19 @@ public class OverflowClient {
     /**
      * 关闭客户端，停止重连
      */
+    @PreDestroy
     public void shutdown() {
+        log.info("正在关闭OverflowClient...");
         shouldReconnect = false;
         reconnectScheduler.shutdown();
+        try {
+            if (!reconnectScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                reconnectScheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            reconnectScheduler.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
         try {
             if (miraibot != null && miraibot.isOnline()) {
                 miraibot.close();
@@ -233,5 +244,6 @@ public class OverflowClient {
         } catch (Exception e) {
             log.error("关闭机器人时出错: {}", e.getMessage(), e);
         }
+        log.info("OverflowClient已关闭");
     }
 }

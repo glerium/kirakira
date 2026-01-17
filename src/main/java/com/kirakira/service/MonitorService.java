@@ -150,9 +150,9 @@ public class MonitorService {
                     groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
                     groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败 (用户: " + cfId + "): " + e.getLocalizedMessage());
                 }
-            } catch (Exception e) {
-                // 捕获所有其他异常，防止单个用户的错误影响整体流程
-                log.error("处理用户 {} 的提交时发生未知错误: {}", cfId, e.getMessage(), e);
+            } catch (RuntimeException e) {
+                // 捕获运行时异常，防止单个用户的错误影响整体流程
+                log.error("处理用户 {} 的提交时发生运行时错误: {}", cfId, e.getMessage(), e);
                 if (errorNotificationGroupId != null && !errorNotificationGroupId.isEmpty()) {
                     groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
                     groupErrorMessages.get(errorNotificationGroupId).add("处理用户 " + cfId + " 时发生错误: " + e.getMessage());
