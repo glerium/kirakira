@@ -31,16 +31,22 @@ public class OverflowClient {
     
     private final String websocketUrl;
     private final String token;
+    private final int reconnectDelaySeconds;
+    private final int heartbeatIntervalSeconds;
     private volatile boolean isConnected = false;
     private final ScheduledExecutorService reconnectScheduler = Executors.newSingleThreadScheduledExecutor();
     private volatile boolean shouldReconnect = true;
 
     public OverflowClient(BotService botService, 
                           @Value("${bot.websocket.url}") String websocketUrl,
-                          @Value("${bot.websocket.token}") String token) {
+                          @Value("${bot.websocket.token}") String token,
+                          @Value("${bot.websocket.reconnect.delay.seconds:10}") int reconnectDelaySeconds,
+                          @Value("${bot.websocket.heartbeat.interval.seconds:60}") int heartbeatIntervalSeconds) {
         this.botService = botService;
         this.websocketUrl = websocketUrl;
         this.token = token;
+        this.reconnectDelaySeconds = reconnectDelaySeconds;
+        this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
         
         // 初始化连接
         connect();
@@ -109,7 +115,7 @@ public class OverflowClient {
                 log.info("尝试重新连接到WebSocket服务器...");
                 connect();
             }
-        }, 10, TimeUnit.SECONDS);
+        }, reconnectDelaySeconds, TimeUnit.SECONDS);
     }
     
     /**
@@ -126,7 +132,7 @@ public class OverflowClient {
             } catch (Exception e) {
                 log.error("心跳检测时出错: {}", e.getMessage(), e);
             }
-        }, 60, 60, TimeUnit.SECONDS);
+        }, heartbeatIntervalSeconds, heartbeatIntervalSeconds, TimeUnit.SECONDS);
     }
     
     /**

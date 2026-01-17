@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -21,11 +22,15 @@ public class CodeforcesClient {
     private static final Logger log = LoggerFactory.getLogger(CodeforcesClient.class);
     private final RestTemplate restTemplate;
     private static final String API_URL = "https://codeforces.com/api/user.status?handle=%s&from=1&count=10";
-    private static final int MAX_RETRIES = 3;
-    private static final long RETRY_DELAY_MS = 2000;
+    private final int maxRetries;
+    private final long retryDelayMs;
 
-    public CodeforcesClient(RestTemplate restTemplate) {
+    public CodeforcesClient(RestTemplate restTemplate,
+                           @Value("${bot.codeforces.api.max.retries:3}") int maxRetries,
+                           @Value("${bot.codeforces.api.retry.delay.ms:2000}") long retryDelayMs) {
         this.restTemplate = restTemplate;
+        this.maxRetries = maxRetries;
+        this.retryDelayMs = retryDelayMs;
     }
 
     public List<CfSubmissionDto> getRecentSubmissions(String handle) {
@@ -34,7 +39,7 @@ public class CodeforcesClient {
         int retryCount = 0;
         Exception lastException = null;
 
-        while (retryCount < MAX_RETRIES) {
+        while (retryCount < maxRetries) {
             try {
                 CfSubmissionApiResponse response = restTemplate.getForObject(url, CfSubmissionApiResponse.class);
 
@@ -74,11 +79,11 @@ public class CodeforcesClient {
                 lastException = e;
                 retryCount++;
                 log.warn("Codeforces API请求失败 (用户: {}), 重试 {}/{}: {}", 
-                         handle, retryCount, MAX_RETRIES, e.getMessage());
+                         handle, retryCount, maxRetries, e.getMessage());
                 
-                if (retryCount < MAX_RETRIES) {
+                if (retryCount < maxRetries) {
                     try {
-                        Thread.sleep(RETRY_DELAY_MS * retryCount); // 递增延迟
+                        Thread.sleep(retryDelayMs * retryCount); // 递增延迟
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new CodeforcesApiException("请求被中断", ie);
@@ -89,11 +94,11 @@ public class CodeforcesClient {
                 lastException = e;
                 retryCount++;
                 log.warn("Codeforces API请求出错 (用户: {}), 重试 {}/{}: {}", 
-                         handle, retryCount, MAX_RETRIES, e.getMessage());
+                         handle, retryCount, maxRetries, e.getMessage());
                 
-                if (retryCount < MAX_RETRIES) {
+                if (retryCount < maxRetries) {
                     try {
-                        Thread.sleep(RETRY_DELAY_MS * retryCount);
+                        Thread.sleep(retryDelayMs * retryCount);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new CodeforcesApiException("请求被中断", ie);
