@@ -4,7 +4,6 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import com.kirakira.client.CodeforcesClient;
 import com.kirakira.entity.GroupUser;
 
 import java.util.ArrayList;
@@ -21,9 +20,10 @@ public class GroupUserRepository {
     }
     
     /**
-     * 获取指定群组中的所有 QQ 号对应的 Codeforces ID 列表
+     * 检查 Codeforces ID 是否已在指定群组中绑定
      * @param groupId 目标群组 ID
-     * @return 该群组下所有 QQ 号对应的 Codeforces ID 映射
+     * @param codeforcesId Codeforces ID
+     * @return 如果已绑定返回 true，否则返回 false
      */
     public boolean checkIfCodeforcesIdExists(String groupId, String codeforcesId) {
         String sql = "SELECT COUNT(*) FROM group_user WHERE group_id = ? AND codeforces_id = ?";
@@ -44,11 +44,20 @@ public class GroupUserRepository {
         return count != null && count > 0;
     }
 
+    /**
+     * 获取所有不重复的 Codeforces ID
+     * @return Codeforces ID 列表
+     */
     public List<String> enumerateAllCodeforcesId() {
         String sql = "SELECT DISTINCT codeforces_id FROM group_user";
         return jdbcTemplate.queryForList(sql, String.class);
     }
 
+    /**
+     * 根据 Codeforces ID 获取关联的所有群组
+     * @param cfId Codeforces ID
+     * @return 群组 ID 列表
+     */
     public List<String> enumerateGroupsByCodeforcesId(String cfId) {
         String sql = "SELECT DISTINCT group_id FROM group_user WHERE LOWER(codeforces_id) = LOWER(?)";
         return jdbcTemplate.queryForList(sql, String.class, cfId);
@@ -83,12 +92,22 @@ public class GroupUserRepository {
         return userCodeforcesMap;
     }
 
+    /**
+     * 获取指定用户在指定群组中绑定的所有 Codeforces ID
+     * @param groupId 群组 ID
+     * @param qqId QQ 号
+     * @return Codeforces ID 列表
+     */
     public List<String> enumerateCodeforcesIdOfSingleUser(String groupId, String qqId) {
         String sql = "SELECT codeforces_id FROM group_user WHERE group_id = ? AND user_qq_id = ?";
 
         return jdbcTemplate.queryForList(sql, String.class, groupId, qqId);
     }
 
+    /**
+     * 获取所有群组 ID 列表
+     * @return 群组 ID 列表
+     */
     public List<String> enumerateGroupList() {
         String sql = "SELECT DISTINCT group_id FROM group_user";
         return jdbcTemplate.queryForList(sql, String.class);

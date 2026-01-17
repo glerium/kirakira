@@ -30,6 +30,7 @@ public class MonitorService {
     private final CodeforcesClient codeforcesClient;
     private final OverflowClient overflowClient;
     private final String errorNotificationGroupId;
+    private final long messageSendIntervalMs;
 
     private static final Logger log = LoggerFactory.getLogger(MonitorService.class);
     private static final Logger operationLog = LoggerFactory.getLogger("com.kirakira.operation");
@@ -39,12 +40,14 @@ public class MonitorService {
                          SubmissionRepository submissionRepository, 
                          OverflowClient overflowClient, 
                          CodeforcesClient codeforcesClient,
-                         @Value("${bot.error.notification.group.id:}") String errorNotificationGroupId) {
+                         @Value("${bot.error.notification.group.id:}") String errorNotificationGroupId,
+                         @Value("${message.send.interval.ms:1000}") long messageSendIntervalMs) {
         this.groupUserRepository = groupUserRepository;
         this.codeforcesClient = codeforcesClient;
         this.overflowClient = overflowClient;
         this.submissionRepository = submissionRepository;
         this.errorNotificationGroupId = errorNotificationGroupId;
+        this.messageSendIntervalMs = messageSendIntervalMs;
     }
 
 
@@ -138,6 +141,7 @@ public class MonitorService {
                                     cfId, problemId, submission.getId());
                 }
             } catch (UserNotFoundException e) {
+                log.warn("User not found: {}", cfId, e);
                 for (String groupId : groupList) {
                     groupErrorMessages.putIfAbsent(groupId, new ArrayList<>());
                     groupErrorMessages.get(groupId).add("CodeForces API请求失败：用户 " + cfId + " 不存在！已将其从数据库中移除。");
@@ -145,10 +149,10 @@ public class MonitorService {
                 }
             } catch (CodeforcesApiException e) {
                 // 记录 API 错误到日志，并发送到配置的错误通知群组
-                log.error("CodeForces API请求失败 (用户: {}): {}", cfId, e.getLocalizedMessage(), e);
+                log.error("CodeForces API请求失败 (用户: {}): {}", cfId, e.getMessage(), e);
                 if (errorNotificationGroupId != null && !errorNotificationGroupId.isEmpty()) {
                     groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
-                    groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败：" + e.getLocalizedMessage());
+                    groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败：" + e.getMessage());
                 }
             }
         }
@@ -162,9 +166,10 @@ public class MonitorService {
             List<String> problemInfos = groupProblemInfos.get(groupId);
             if (!codeforcesIds.isEmpty() && !problemInfos.isEmpty()) {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(messageSendIntervalMs);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                    log.error("Message sending interrupted", e);
                 }
                 String response = overflowClient.sendSubmissionToGroup(groupId, codeforcesIds, problemInfos);
                 JSONObject responseJson = new JSONObject(response);
@@ -193,11 +198,12 @@ public class MonitorService {
      * @param errorMessages 错误消息列表
      */
     private void sendErrorMessagesToGroup(String groupId, List<String> errorMessages) {
-        if(errorMessages != null && !errorMessages.isEmpty()) {
+        if (errorMessages != null && !errorMessages.isEmpty()) {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(messageSendIntervalMs);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                log.error("Error message sending interrupted for group {}", groupId, e);
             }
             String response = overflowClient.sendErrorMessageToGroup(groupId, errorMessages);
             JSONObject responseJson = new JSONObject(response);

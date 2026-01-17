@@ -16,7 +16,7 @@ public class MonitorScheduler {
         this.monitorService = monitorService;
     }
 
-    @Scheduled(fixedRate = 300 * 1000)
+    @Scheduled(fixedRateString = "${scheduler.monitor.interval.ms:300000}")
     public void monitorSubmissions() {
         try {
             monitorService.checkRecentSubmissionsAndNotify();
