@@ -28,9 +28,15 @@ public class CodeforcesClient {
         try {
             CfSubmissionApiResponse response = restTemplate.getForObject(url, CfSubmissionApiResponse.class);
 
-            if (!response.getStatus().equals("OK")) {
+            // 检查响应是否为 null
+            if (response == null) {
+                throw new CodeforcesApiException("API 返回空响应");
+            }
+
+            // 检查状态是否为 null 或不是 "OK"
+            if (response.getStatus() == null || !response.getStatus().equals("OK")) {
                 var comment = response.getComment();
-                if(comment.contains("handle: User with handle") && comment.contains("not found")) {
+                if(comment != null && comment.contains("handle: User with handle") && comment.contains("not found")) {
                     throw new UserNotFoundException("用户 " + handle + " 不存在");
                 }
                 return new ArrayList<>();

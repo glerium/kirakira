@@ -66,8 +66,16 @@ public class GroupUserRepository {
 
         Map<String, List<String>> userCodeforcesMap = new HashMap<>();
         for (Map<String, Object> row : results) {
-            String qqId = row.get("user_qq_id").toString();
-            String codeforcesId = row.get("codeforces_id").toString();
+            Object qqIdObj = row.get("user_qq_id");
+            Object codeforcesIdObj = row.get("codeforces_id");
+            
+            // 检查数据库值是否为 null
+            if (qqIdObj == null || codeforcesIdObj == null) {
+                continue;
+            }
+            
+            String qqId = qqIdObj.toString();
+            String codeforcesId = codeforcesIdObj.toString();
 
             userCodeforcesMap.computeIfAbsent(qqId, k -> new ArrayList<>()).add(codeforcesId);
         }
@@ -125,6 +133,19 @@ public class GroupUserRepository {
     public boolean removeGroupUser(String groupId, String codeforcesId) {
         String sql = "DELETE FROM group_user WHERE group_id = ? AND codeforces_id = ?";
         int rowsAffected = jdbcTemplate.update(sql, groupId, codeforcesId);
+        return rowsAffected > 0;
+    }
+
+    /**
+     * 删除指定用户的 Codeforces 绑定
+     * @param groupId 群号
+     * @param qqId QQ 号
+     * @param codeforcesId Codeforces ID
+     * @return 如果删除成功，返回 true；否则返回 false
+     */
+    public boolean removeGroupUserBinding(String groupId, String qqId, String codeforcesId) {
+        String sql = "DELETE FROM group_user WHERE group_id = ? AND user_qq_id = ? AND codeforces_id = ?";
+        int rowsAffected = jdbcTemplate.update(sql, groupId, qqId, codeforcesId);
         return rowsAffected > 0;
     }
 }

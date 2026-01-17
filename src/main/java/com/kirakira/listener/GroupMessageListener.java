@@ -26,6 +26,11 @@ public class GroupMessageListener {
             message = message.substring(1);
             String[] argv = message.split(" ");
             
+            // 检查 argv 是否为空
+            if (argv.length == 0) {
+                return;
+            }
+            
             String returnMsg = "null";
 
             if (argv[0].equals("bind")) {

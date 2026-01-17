@@ -61,7 +61,13 @@ public class MonitorService {
                 String realCfId = null;
 
                 for (CfSubmissionDto submission : submissions) {
+                    // 检查 problem 是否为 null
                     CfProblemDto problem = submission.getProblem();
+                    if (problem == null) {
+                        log.warn("Submission {} has null problem, skipping", submission.getId());
+                        continue;
+                    }
+                    
                     String problemId = problem.getContestId() + problem.getIndex();
 
                     // 如果提交已经存在，则跳过
@@ -70,15 +76,31 @@ public class MonitorService {
                     }
                     log.debug("Get submission " + submission.getId());
 
-                    // 获取题目作者的成员信息，找出匹配的 cfId
+                    // 检查 author 和 members 是否为 null
+                    if (submission.getAuthor() == null) {
+                        log.warn("Submission {} has null author, skipping", submission.getId());
+                        continue;
+                    }
+                    
                     List<CfMemberDto> members = submission.getAuthor().getMembers();
+                    if (members == null || members.isEmpty()) {
+                        log.warn("Submission {} has null or empty members, skipping", submission.getId());
+                        continue;
+                    }
 
+                    // 获取题目作者的成员信息，找出匹配的 cfId
                     for (CfMemberDto member : members) {
                         String handle = member.getHandle();
-                        if (handle.equalsIgnoreCase(cfId)) {
+                        if (handle != null && handle.equalsIgnoreCase(cfId)) {
                             realCfId = handle;
                             break;
                         }
+                    }
+
+                    // 如果没有找到匹配的 cfId，跳过此提交
+                    if (realCfId == null) {
+                        log.warn("No matching cfId found for submission {}", submission.getId());
+                        continue;
                     }
 
                     // 获取题目信息
@@ -109,8 +131,13 @@ public class MonitorService {
                     groupUserRepository.removeGroupUser(groupId, cfId);
                 }
             } catch (CodeforcesApiException e) {
-                groupErrorMessages.putIfAbsent("123456789", new ArrayList<>());
-                groupErrorMessages.get("123456789").add("CodeForces API请求失败：" + e.getLocalizedMessage());
+                // 记录 API 错误到日志，而不是发送到特定群组
+                log.error("CodeForces API请求失败 (用户: {}): {}", cfId, e.getLocalizedMessage(), e);
+                // 如果需要通知相关群组，可以将错误添加到对应的群组
+                for (String groupId : groupList) {
+                    groupErrorMessages.putIfAbsent(groupId, new ArrayList<>());
+                    groupErrorMessages.get(groupId).add("CodeForces API请求失败：" + e.getLocalizedMessage());
+                }
             }
         }
         
