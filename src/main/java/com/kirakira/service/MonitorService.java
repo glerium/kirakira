@@ -166,41 +166,35 @@ public class MonitorService {
                 }
             }
             
-            List<String> errorMessages = groupErrorMessages.get(groupId);
-            if(errorMessages != null && !errorMessages.isEmpty()) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                String response = overflowClient.sendErrorMessageToGroup(groupId, errorMessages);
-                JSONObject responseJson = new JSONObject(response);
-                if (responseJson.optInt("retcode", -1) == 0) {
-                    log.info("Successfully sent error message to group " + groupId);
-                } else {
-                    log.warn("Error sending error message to group " + groupId + ": " + response);
-                }
-            }
+            sendErrorMessagesToGroup(groupId, groupErrorMessages.get(groupId));
         }
         
         // 处理未在 groupCodeforcesIds 中但有错误消息的群组（如错误通知群组）
         for (String groupId : groupErrorMessages.keySet()) {
             if (!groupCodeforcesIds.containsKey(groupId)) {
-                List<String> errorMessages = groupErrorMessages.get(groupId);
-                if(errorMessages != null && !errorMessages.isEmpty()) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                    String response = overflowClient.sendErrorMessageToGroup(groupId, errorMessages);
-                    JSONObject responseJson = new JSONObject(response);
-                    if (responseJson.optInt("retcode", -1) == 0) {
-                        log.info("Successfully sent error message to group " + groupId);
-                    } else {
-                        log.warn("Error sending error message to group " + groupId + ": " + response);
-                    }
-                }
+                sendErrorMessagesToGroup(groupId, groupErrorMessages.get(groupId));
+            }
+        }
+    }
+
+    /**
+     * 向指定群组发送错误消息
+     * @param groupId 群组 ID
+     * @param errorMessages 错误消息列表
+     */
+    private void sendErrorMessagesToGroup(String groupId, List<String> errorMessages) {
+        if(errorMessages != null && !errorMessages.isEmpty()) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            String response = overflowClient.sendErrorMessageToGroup(groupId, errorMessages);
+            JSONObject responseJson = new JSONObject(response);
+            if (responseJson.optInt("retcode", -1) == 0) {
+                log.info("Successfully sent error message to group " + groupId);
+            } else {
+                log.warn("Error sending error message to group " + groupId + ": " + response);
             }
         }
     }
