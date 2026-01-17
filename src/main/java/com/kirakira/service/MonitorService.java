@@ -57,8 +57,6 @@ public class MonitorService {
 
             try {
                 List<CfSubmissionDto> submissions = codeforcesClient.getRecentSubmissions(cfId);
-                
-                String realCfId = null;
 
                 for (CfSubmissionDto submission : submissions) {
                     // 检查 problem 是否为 null
@@ -89,6 +87,7 @@ public class MonitorService {
                     }
 
                     // 获取题目作者的成员信息，找出匹配的 cfId
+                    String realCfId = null;
                     for (CfMemberDto member : members) {
                         String handle = member.getHandle();
                         if (handle != null && handle.equalsIgnoreCase(cfId)) {

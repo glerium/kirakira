@@ -16,7 +16,6 @@ public class AppConfig {
         factory.setConnectTimeout(10000); // 10 seconds
         factory.setReadTimeout(30000);    // 30 seconds
         
-        RestTemplate restTemplate = new RestTemplate(factory);
-        return restTemplate;
+        return new RestTemplate(factory);
     }
 }
