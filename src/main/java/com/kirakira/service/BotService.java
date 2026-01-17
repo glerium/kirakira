@@ -3,6 +3,8 @@ package com.kirakira.service;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +16,9 @@ import com.kirakira.repository.GroupUserRepository;
 
 @Component
 public class BotService {
+
+    private static final Logger log = LoggerFactory.getLogger(BotService.class);
+    private static final Logger operationLog = LoggerFactory.getLogger("com.kirakira.operation");
 
     private final GroupUserRepository groupUserRepository;
     private final CodeforcesClient codeforcesClient;
@@ -34,11 +39,15 @@ public class BotService {
     }
 
     public String linkAccount(String groupId, String qqId, String codeforcesId) {
+        operationLog.info("BIND - Group: {}, QQ: {}, CF: {} - START", groupId, qqId, codeforcesId);
+        
         // 1. 检查 Codeforces ID 是否已存在
         if (groupUserRepository.checkIfCodeforcesIdExists(groupId, codeforcesId)) {
+            operationLog.info("BIND - Group: {}, QQ: {}, CF: {} - FAILED: Already bound", groupId, qqId, codeforcesId);
             return "Codeforces ID 已被绑定";
         }
         if (codeforcesId == null || !codeforcesId.matches("^[a-zA-Z0-9_-]+$")) {
+            operationLog.info("BIND - Group: {}, QQ: {}, CF: {} - FAILED: Invalid handle format", groupId, qqId, codeforcesId);
             return "账号绑定失败：handle should contain only Latin letters, digits, underscore or dash characters";
         }
 
@@ -47,10 +56,13 @@ public class BotService {
             // Call API to verify user exists (result intentionally discarded)
             codeforcesClient.getRecentSubmissions(codeforcesId);
         } catch (UserNotFoundException e) {
+            operationLog.info("BIND - Group: {}, QQ: {}, CF: {} - FAILED: User not found", groupId, qqId, codeforcesId);
             return "账号绑定失败：用户不存在";
         } catch (CodeforcesApiException e) {
+            operationLog.error("BIND - Group: {}, QQ: {}, CF: {} - FAILED: API error - {}", groupId, qqId, codeforcesId, e.getMessage());
             return "账号绑定失败：" + (e.getMessage() != null ? e.getMessage() : "API 请求失败");
         } catch (Exception e) {
+            operationLog.error("BIND - Group: {}, QQ: {}, CF: {} - FAILED: Unknown error - {}", groupId, qqId, codeforcesId, e.getLocalizedMessage());
             return "账号绑定失败：" + (e.getLocalizedMessage() != null ? e.getLocalizedMessage() : "未知错误");
         }
 
@@ -62,13 +74,21 @@ public class BotService {
 
         // 3. 写入数据库
         boolean success = groupUserRepository.addGroupUser(user);
+        if (success) {
+            operationLog.info("BIND - Group: {}, QQ: {}, CF: {} - SUCCESS", groupId, qqId, codeforcesId);
+        } else {
+            operationLog.error("BIND - Group: {}, QQ: {}, CF: {} - FAILED: Database error", groupId, qqId, codeforcesId);
+        }
         return success ? "账号绑定成功" : "账号绑定失败";
     }
 
     public String queryAllUserList(String groupId) {
+        operationLog.info("LISTALL - Group: {}, Requesting user list", groupId);
+        
         Map<String, List<String>> userList = groupUserRepository.enumerateCodeforcesIdFromGroup(groupId);
 
         if (userList.isEmpty()) {
+            operationLog.info("LISTALL - Group: {}, Result: No bindings found", groupId);
             return "该群组内暂无绑定的 Codeforces 账号。";
         }
 
@@ -81,13 +101,17 @@ public class BotService {
             sb.append("\n");
         }
 
+        operationLog.info("LISTALL - Group: {}, Result: {} users with bindings", groupId, userList.size());
         return sb.toString();
     }
 
     public String querySingleUserList(String groupId, String qqId) {
+        operationLog.info("LIST - Group: {}, QQ: {}, Requesting bindings", groupId, qqId);
+        
         List<String> codeforcesIds = groupUserRepository.enumerateCodeforcesIdOfSingleUser(groupId, qqId);
 
         if (codeforcesIds.isEmpty()) {
+            operationLog.info("LIST - Group: {}, QQ: {}, Result: No bindings", groupId, qqId);
             return "你还没有绑定 CodeForces 账号！";
         }
         
@@ -95,6 +119,7 @@ public class BotService {
         sb.append(qqId + " 绑定的 CodeForces 账号如下：\n");
         sb.append(String.join(", ", codeforcesIds));
         
+        operationLog.info("LIST - Group: {}, QQ: {}, Result: {} binding(s) - {}", groupId, qqId, codeforcesIds.size(), String.join(", ", codeforcesIds));
         return sb.toString();
     }
 
@@ -106,13 +131,21 @@ public class BotService {
      * @return 解绑操作的结果
      */
     public String unlinkAccount(String groupId, String qqId, String codeforcesId) {
+        operationLog.info("UNBIND - Group: {}, QQ: {}, CF: {} - START", groupId, qqId, codeforcesId);
+        
         // 1. 检查是否存在该绑定
         if (!groupUserRepository.checkIfBindingExists(groupId, qqId, codeforcesId)) {
+            operationLog.info("UNBIND - Group: {}, QQ: {}, CF: {} - FAILED: Binding does not exist", groupId, qqId, codeforcesId);
             return "该 Codeforces ID 未绑定到此 QQ 号";
         }
 
         // 2. 执行删除操作，只删除该用户的绑定
         boolean success = groupUserRepository.removeGroupUserBinding(groupId, qqId, codeforcesId);
+        if (success) {
+            operationLog.info("UNBIND - Group: {}, QQ: {}, CF: {} - SUCCESS", groupId, qqId, codeforcesId);
+        } else {
+            operationLog.error("UNBIND - Group: {}, QQ: {}, CF: {} - FAILED: Database error", groupId, qqId, codeforcesId);
+        }
         return success ? "解绑成功" : "数据库操作失败";
     }
 }

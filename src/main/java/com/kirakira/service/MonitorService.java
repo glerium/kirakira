@@ -32,6 +32,7 @@ public class MonitorService {
     private final String errorNotificationGroupId;
 
     private static final Logger log = LoggerFactory.getLogger(MonitorService.class);
+    private static final Logger operationLog = LoggerFactory.getLogger("com.kirakira.operation");
 
 
     public MonitorService(GroupUserRepository groupUserRepository, 
@@ -48,6 +49,8 @@ public class MonitorService {
 
 
     public void checkRecentSubmissionsAndNotify() {
+        operationLog.info("MONITOR - Starting submission check");
+        
         // 存储每个群组对应的 Codeforces IDs 和 ProblemInfos
         Map<String, List<String>> groupCodeforcesIds = new HashMap<>();
         Map<String, List<String>> groupProblemInfos = new HashMap<>();
@@ -58,6 +61,8 @@ public class MonitorService {
 
         // 遍历每个 Codeforces ID
         log.info("Checking submissions");
+        operationLog.info("MONITOR - Checking {} Codeforces accounts", allCfIds.size());
+        
         for (String cfId : allCfIds) {
             // 获取此 Codeforces ID 所在的所有群组
             List<String> groupList = groupUserRepository.enumerateGroupsByCodeforcesId(cfId);
@@ -129,6 +134,8 @@ public class MonitorService {
                             .submissionTime(submission.getCreationTime())
                             .build();
                     submissionRepository.insertSubmission(submissionDb);
+                    operationLog.info("MONITOR - New submission recorded: CF: {}, Problem: {}, Submission ID: {}", 
+                                    cfId, problemId, submission.getId());
                 }
             } catch (UserNotFoundException e) {
                 for (String groupId : groupList) {
@@ -147,6 +154,8 @@ public class MonitorService {
         }
         
         log.info("Check submissions done.");
+        operationLog.info("MONITOR - Submission check completed");
+        
         // 对每个群组发送消息，并控制消息发送间隔
         for (String groupId : groupCodeforcesIds.keySet()) {
             List<String> codeforcesIds = groupCodeforcesIds.get(groupId);
@@ -161,6 +170,7 @@ public class MonitorService {
                 JSONObject responseJson = new JSONObject(response);
                 if (responseJson.optInt("retcode", -1) == 0) {
                     log.info("Successfully sent submission to group " + groupId);
+                    operationLog.info("MONITOR - Notifications sent to group: {}, {} submission(s)", groupId, codeforcesIds.size());
                 } else {
                     log.warn("Error sending submission to group " + groupId + ": " + response);
                 }

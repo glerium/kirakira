@@ -8,8 +8,12 @@ import net.mamoe.mirai.event.Listener;
 import net.mamoe.mirai.event.events.BotEvent;
 import net.mamoe.mirai.event.events.GroupMessageEvent;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class GroupMessageListener {
+    private static final Logger operationLog = LoggerFactory.getLogger("com.kirakira.operation");
     private final Listener<GroupMessageEvent> listener;
     
     public GroupMessageListener(BotService botService, EventChannel<BotEvent> channel) {
@@ -30,6 +34,8 @@ public class GroupMessageListener {
             if (argv.length == 0) {
                 return;
             }
+            
+            operationLog.info("COMMAND - Group: {}, User: {}, Command: {}", groupId, senderId, message);
             
             String returnMsg = "null";
 
