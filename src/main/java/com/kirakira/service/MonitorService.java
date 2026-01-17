@@ -8,6 +8,7 @@ import java.util.Map;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.kirakira.client.CodeforcesClient;
@@ -28,15 +29,21 @@ public class MonitorService {
     private final SubmissionRepository submissionRepository;
     private final CodeforcesClient codeforcesClient;
     private final OverflowClient overflowClient;
+    private final String errorNotificationGroupId;
 
     private static final Logger log = LoggerFactory.getLogger(MonitorService.class);
 
 
-    public MonitorService(GroupUserRepository groupUserRepository, SubmissionRepository submissionRepository, OverflowClient overflowClient, CodeforcesClient codeforcesClient) {
+    public MonitorService(GroupUserRepository groupUserRepository, 
+                         SubmissionRepository submissionRepository, 
+                         OverflowClient overflowClient, 
+                         CodeforcesClient codeforcesClient,
+                         @Value("${bot.error.notification.group.id:}") String errorNotificationGroupId) {
         this.groupUserRepository = groupUserRepository;
         this.codeforcesClient = codeforcesClient;
         this.overflowClient = overflowClient;
         this.submissionRepository = submissionRepository;
+        this.errorNotificationGroupId = errorNotificationGroupId;
     }
 
 
@@ -57,11 +64,15 @@ public class MonitorService {
 
             try {
                 List<CfSubmissionDto> submissions = codeforcesClient.getRecentSubmissions(cfId);
-                
-                String realCfId = null;
 
                 for (CfSubmissionDto submission : submissions) {
+                    // 检查 problem 是否为 null
                     CfProblemDto problem = submission.getProblem();
+                    if (problem == null) {
+                        log.warn("Submission {} has null problem, skipping", submission.getId());
+                        continue;
+                    }
+                    
                     String problemId = problem.getContestId() + problem.getIndex();
 
                     // 如果提交已经存在，则跳过
@@ -70,15 +81,32 @@ public class MonitorService {
                     }
                     log.debug("Get submission " + submission.getId());
 
-                    // 获取题目作者的成员信息，找出匹配的 cfId
+                    // 检查 author 和 members 是否为 null
+                    if (submission.getAuthor() == null) {
+                        log.warn("Submission {} has null author, skipping", submission.getId());
+                        continue;
+                    }
+                    
                     List<CfMemberDto> members = submission.getAuthor().getMembers();
+                    if (members == null || members.isEmpty()) {
+                        log.warn("Submission {} has null or empty members, skipping", submission.getId());
+                        continue;
+                    }
 
+                    // 获取题目作者的成员信息，找出匹配的 cfId
+                    String realCfId = null;
                     for (CfMemberDto member : members) {
                         String handle = member.getHandle();
-                        if (handle.equalsIgnoreCase(cfId)) {
+                        if (handle != null && handle.equalsIgnoreCase(cfId)) {
                             realCfId = handle;
                             break;
                         }
+                    }
+
+                    // 如果没有找到匹配的 cfId，跳过此提交
+                    if (realCfId == null) {
+                        log.warn("No matching cfId found for submission {}", submission.getId());
+                        continue;
                     }
 
                     // 获取题目信息
@@ -109,8 +137,12 @@ public class MonitorService {
                     groupUserRepository.removeGroupUser(groupId, cfId);
                 }
             } catch (CodeforcesApiException e) {
-                groupErrorMessages.putIfAbsent("123456789", new ArrayList<>());
-                groupErrorMessages.get("123456789").add("CodeForces API请求失败：" + e.getLocalizedMessage());
+                // 记录 API 错误到日志，并发送到配置的错误通知群组
+                log.error("CodeForces API请求失败 (用户: {}): {}", cfId, e.getLocalizedMessage(), e);
+                if (errorNotificationGroupId != null && !errorNotificationGroupId.isEmpty()) {
+                    groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
+                    groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败：" + e.getLocalizedMessage());
+                }
             }
         }
         
@@ -134,20 +166,35 @@ public class MonitorService {
                 }
             }
             
-            List<String> errorMessages = groupErrorMessages.get(groupId);
-            if(errorMessages != null && !errorMessages.isEmpty()) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                String response = overflowClient.sendErrorMessageToGroup(groupId, errorMessages);
-                JSONObject responseJson = new JSONObject(response);
-                if (responseJson.optInt("retcode", -1) == 0) {
-                    log.info("Successfully sent error message to group " + groupId);
-                } else {
-                    log.warn("Error sending error message to group " + groupId + ": " + response);
-                }
+            sendErrorMessagesToGroup(groupId, groupErrorMessages.get(groupId));
+        }
+        
+        // 处理未在 groupCodeforcesIds 中但有错误消息的群组（如错误通知群组）
+        for (String groupId : groupErrorMessages.keySet()) {
+            if (!groupCodeforcesIds.containsKey(groupId)) {
+                sendErrorMessagesToGroup(groupId, groupErrorMessages.get(groupId));
+            }
+        }
+    }
+
+    /**
+     * 向指定群组发送错误消息
+     * @param groupId 群组 ID
+     * @param errorMessages 错误消息列表
+     */
+    private void sendErrorMessagesToGroup(String groupId, List<String> errorMessages) {
+        if(errorMessages != null && !errorMessages.isEmpty()) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            String response = overflowClient.sendErrorMessageToGroup(groupId, errorMessages);
+            JSONObject responseJson = new JSONObject(response);
+            if (responseJson.optInt("retcode", -1) == 0) {
+                log.info("Successfully sent error message to group " + groupId);
+            } else {
+                log.warn("Error sending error message to group " + groupId + ": " + response);
             }
         }
     }

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 
 import com.kirakira.client.CodeforcesClient;
 import com.kirakira.entity.GroupUser;
+import com.kirakira.entity.exception.CodeforcesApiException;
+import com.kirakira.entity.exception.UserNotFoundException;
 import com.kirakira.repository.GroupUserRepository;
 
 @Component
@@ -41,10 +43,15 @@ public class BotService {
         }
 
         // check if user exists
-        try {   
-            var result = codeforcesClient.getRecentSubmissions(codeforcesId);
+        try {
+            // Call API to verify user exists (result intentionally discarded)
+            codeforcesClient.getRecentSubmissions(codeforcesId);
+        } catch (UserNotFoundException e) {
+            return "账号绑定失败：用户不存在";
+        } catch (CodeforcesApiException e) {
+            return "账号绑定失败：" + (e.getMessage() != null ? e.getMessage() : "API 请求失败");
         } catch (Exception e) {
-            return "账号绑定失败：" + e.getLocalizedMessage();
+            return "账号绑定失败：" + (e.getLocalizedMessage() != null ? e.getLocalizedMessage() : "未知错误");
         }
 
         // 2. 创建用户对象
@@ -93,7 +100,9 @@ public class BotService {
 
     /**
      * 解绑 Codeforces 账号
-     * @param request 包含 groupId, qqId, codeforcesId 的请求体
+     * @param groupId 群号
+     * @param qqId QQ 号
+     * @param codeforcesId Codeforces ID
      * @return 解绑操作的结果
      */
     public String unlinkAccount(String groupId, String qqId, String codeforcesId) {
@@ -102,8 +111,8 @@ public class BotService {
             return "该 Codeforces ID 未绑定到此 QQ 号";
         }
 
-        // 2. 执行删除操作
-        boolean success = groupUserRepository.removeGroupUser(groupId, codeforcesId);
+        // 2. 执行删除操作，只删除该用户的绑定
+        boolean success = groupUserRepository.removeGroupUserBinding(groupId, qqId, codeforcesId);
         return success ? "解绑成功" : "数据库操作失败";
     }
 }

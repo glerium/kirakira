@@ -3,6 +3,7 @@ package com.kirakira.client;
 import java.util.List;
 
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.kirakira.listener.GroupMessageListener;
@@ -19,9 +20,11 @@ public class OverflowClient {
     GroupMessageListener groupMsgListener;
     BotService botService;
 
-    public OverflowClient(BotService botService) {
-        this.miraibot = BotBuilder.positive("ws://127.0.0.1:3001")
-            .token("token")
+    public OverflowClient(BotService botService, 
+                          @Value("${bot.websocket.url}") String websocketUrl,
+                          @Value("${bot.websocket.token}") String token) {
+        this.miraibot = BotBuilder.positive(websocketUrl)
+            .token(token)
             .connect();
         this.bot = (RemoteBot) this.miraibot;
 
