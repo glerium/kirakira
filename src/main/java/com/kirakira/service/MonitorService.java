@@ -38,7 +38,7 @@ public class MonitorService {
                          SubmissionRepository submissionRepository, 
                          OverflowClient overflowClient, 
                          CodeforcesClient codeforcesClient,
-                         @Value("${bot.error.notification.group.id}") String errorNotificationGroupId) {
+                         @Value("${bot.error.notification.group.id:}") String errorNotificationGroupId) {
         this.groupUserRepository = groupUserRepository;
         this.codeforcesClient = codeforcesClient;
         this.overflowClient = overflowClient;
@@ -139,8 +139,10 @@ public class MonitorService {
             } catch (CodeforcesApiException e) {
                 // 记录 API 错误到日志，并发送到配置的错误通知群组
                 log.error("CodeForces API请求失败 (用户: {}): {}", cfId, e.getLocalizedMessage(), e);
-                groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
-                groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败：" + e.getLocalizedMessage());
+                if (errorNotificationGroupId != null && !errorNotificationGroupId.isEmpty()) {
+                    groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
+                    groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败：" + e.getLocalizedMessage());
+                }
             }
         }
         
@@ -177,6 +179,27 @@ public class MonitorService {
                     log.info("Successfully sent error message to group " + groupId);
                 } else {
                     log.warn("Error sending error message to group " + groupId + ": " + response);
+                }
+            }
+        }
+        
+        // 处理未在 groupCodeforcesIds 中但有错误消息的群组（如错误通知群组）
+        for (String groupId : groupErrorMessages.keySet()) {
+            if (!groupCodeforcesIds.containsKey(groupId)) {
+                List<String> errorMessages = groupErrorMessages.get(groupId);
+                if(errorMessages != null && !errorMessages.isEmpty()) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    String response = overflowClient.sendErrorMessageToGroup(groupId, errorMessages);
+                    JSONObject responseJson = new JSONObject(response);
+                    if (responseJson.optInt("retcode", -1) == 0) {
+                        log.info("Successfully sent error message to group " + groupId);
+                    } else {
+                        log.warn("Error sending error message to group " + groupId + ": " + response);
+                    }
                 }
             }
         }
