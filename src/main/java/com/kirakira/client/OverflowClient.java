@@ -35,7 +35,13 @@ public class OverflowClient {
     private final int reconnectDelaySeconds;
     private final int heartbeatIntervalSeconds;
     private volatile boolean isConnected = false;
-    private final ScheduledExecutorService reconnectScheduler = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService reconnectScheduler = Executors.newSingleThreadScheduledExecutor(
+        r -> {
+            Thread t = new Thread(r, "overflow-reconnect-thread");
+            t.setDaemon(true);
+            return t;
+        }
+    );
     private volatile boolean shouldReconnect = true;
 
     public OverflowClient(BotService botService, 

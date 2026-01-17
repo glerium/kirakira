@@ -60,7 +60,7 @@ bot.websocket.heartbeat.interval.seconds=60
 bot.codeforces.api.max.retries=3
 
 # Codeforces API 重试延迟基数（毫秒），默认 2000
-# 实际延迟为：基数 × 重试次数（2秒、4秒、6秒）
+# 实际延迟为：基数 × 重试次数（线性退避：2秒、4秒、6秒）
 bot.codeforces.api.retry.delay.ms=2000
 ```
 
@@ -74,10 +74,10 @@ bot.codeforces.api.retry.delay.ms=2000
    - 网络连接超时（ResourceAccessException）
    - 其他临时性异常
 
-3. **延迟策略**：
-   - 第1次重试：等待 2 秒
-   - 第2次重试：等待 4 秒
-   - 第3次重试：等待 6 秒
+3. **延迟策略（线性退避）**：
+   - 第1次重试：等待 2 秒（基数 × 1）
+   - 第2次重试：等待 4 秒（基数 × 2）
+   - 第3次重试：等待 6 秒（基数 × 3）
    - 超过最大次数：抛出异常
 
 ### 3. 监控服务增强
