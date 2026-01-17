@@ -8,6 +8,7 @@ import java.util.Map;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.kirakira.client.CodeforcesClient;
@@ -28,15 +29,21 @@ public class MonitorService {
     private final SubmissionRepository submissionRepository;
     private final CodeforcesClient codeforcesClient;
     private final OverflowClient overflowClient;
+    private final String errorNotificationGroupId;
 
     private static final Logger log = LoggerFactory.getLogger(MonitorService.class);
 
 
-    public MonitorService(GroupUserRepository groupUserRepository, SubmissionRepository submissionRepository, OverflowClient overflowClient, CodeforcesClient codeforcesClient) {
+    public MonitorService(GroupUserRepository groupUserRepository, 
+                         SubmissionRepository submissionRepository, 
+                         OverflowClient overflowClient, 
+                         CodeforcesClient codeforcesClient,
+                         @Value("${bot.error.notification.group.id}") String errorNotificationGroupId) {
         this.groupUserRepository = groupUserRepository;
         this.codeforcesClient = codeforcesClient;
         this.overflowClient = overflowClient;
         this.submissionRepository = submissionRepository;
+        this.errorNotificationGroupId = errorNotificationGroupId;
     }
 
 
@@ -130,13 +137,10 @@ public class MonitorService {
                     groupUserRepository.removeGroupUser(groupId, cfId);
                 }
             } catch (CodeforcesApiException e) {
-                // 记录 API 错误到日志，而不是发送到特定群组
+                // 记录 API 错误到日志，并发送到配置的错误通知群组
                 log.error("CodeForces API请求失败 (用户: {}): {}", cfId, e.getLocalizedMessage(), e);
-                // 如果需要通知相关群组，可以将错误添加到对应的群组
-                for (String groupId : groupList) {
-                    groupErrorMessages.putIfAbsent(groupId, new ArrayList<>());
-                    groupErrorMessages.get(groupId).add("CodeForces API请求失败：" + e.getLocalizedMessage());
-                }
+                groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
+                groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败：" + e.getLocalizedMessage());
             }
         }
         
