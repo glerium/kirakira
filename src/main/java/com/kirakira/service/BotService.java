@@ -61,6 +61,9 @@ public class BotService {
         } catch (CodeforcesApiException e) {
             operationLog.error("BIND - Group: {}, QQ: {}, CF: {} - FAILED: API error - {}", groupId, qqId, codeforcesId, e.getMessage());
             return "账号绑定失败：" + (e.getMessage() != null ? e.getMessage() : "API 请求失败");
+        } catch (Exception e) {
+            operationLog.error("BIND - Group: {}, QQ: {}, CF: {} - FAILED: Unknown error - {}", groupId, qqId, codeforcesId, e.getLocalizedMessage());
+            return "账号绑定失败：" + (e.getLocalizedMessage() != null ? e.getLocalizedMessage() : "未知错误");
         }
 
         // 2. 创建用户对象
