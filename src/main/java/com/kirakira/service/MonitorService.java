@@ -48,6 +48,12 @@ public class MonitorService {
 
 
     public void checkRecentSubmissionsAndNotify() {
+        // 检查机器人连接状态
+        if (!overflowClient.isConnected()) {
+            log.warn("机器人未连接，跳过本次检查");
+            return;
+        }
+        
         // 存储每个群组对应的 Codeforces IDs 和 ProblemInfos
         Map<String, List<String>> groupCodeforcesIds = new HashMap<>();
         Map<String, List<String>> groupProblemInfos = new HashMap<>();
@@ -131,6 +137,7 @@ public class MonitorService {
                     submissionRepository.insertSubmission(submissionDb);
                 }
             } catch (UserNotFoundException e) {
+                log.warn("用户 {} 不存在，从数据库中移除", cfId);
                 for (String groupId : groupList) {
                     groupErrorMessages.putIfAbsent(groupId, new ArrayList<>());
                     groupErrorMessages.get(groupId).add("CodeForces API请求失败：用户 " + cfId + " 不存在！已将其从数据库中移除。");
@@ -141,7 +148,14 @@ public class MonitorService {
                 log.error("CodeForces API请求失败 (用户: {}): {}", cfId, e.getLocalizedMessage(), e);
                 if (errorNotificationGroupId != null && !errorNotificationGroupId.isEmpty()) {
                     groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
-                    groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败：" + e.getLocalizedMessage());
+                    groupErrorMessages.get(errorNotificationGroupId).add("CodeForces API请求失败 (用户: " + cfId + "): " + e.getLocalizedMessage());
+                }
+            } catch (Exception e) {
+                // 捕获所有其他异常，防止单个用户的错误影响整体流程
+                log.error("处理用户 {} 的提交时发生未知错误: {}", cfId, e.getMessage(), e);
+                if (errorNotificationGroupId != null && !errorNotificationGroupId.isEmpty()) {
+                    groupErrorMessages.putIfAbsent(errorNotificationGroupId, new ArrayList<>());
+                    groupErrorMessages.get(errorNotificationGroupId).add("处理用户 " + cfId + " 时发生错误: " + e.getMessage());
                 }
             }
         }
@@ -157,6 +171,13 @@ public class MonitorService {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
+                
+                // 再次检查连接状态
+                if (!overflowClient.isConnected()) {
+                    log.error("发送消息前检测到机器人未连接，跳过发送");
+                    break;
+                }
+                
                 String response = overflowClient.sendSubmissionToGroup(groupId, codeforcesIds, problemInfos);
                 JSONObject responseJson = new JSONObject(response);
                 if (responseJson.optInt("retcode", -1) == 0) {
@@ -189,6 +210,13 @@ public class MonitorService {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+            
+            // 检查连接状态
+            if (!overflowClient.isConnected()) {
+                log.error("发送错误消息前检测到机器人未连接，跳过发送");
+                return;
+            }
+            
             String response = overflowClient.sendErrorMessageToGroup(groupId, errorMessages);
             JSONObject responseJson = new JSONObject(response);
             if (responseJson.optInt("retcode", -1) == 0) {
