@@ -38,7 +38,12 @@
         <dependency>
             <groupId>top.mrxiaom.mirai</groupId>
             <artifactId>overflow-core</artifactId>
-            <version>1.0.3.581-19bc9f8-SNAPSHOT</version> <!-- 使用最新快照版本 -->
+            <version>1.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>net.mamoe</groupId>
+            <artifactId>mirai-core-api-jvm</artifactId>
+            <version>2.16.0</version>
         </dependency>
         
         <dependency>
